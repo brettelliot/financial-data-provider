@@ -1,12 +1,17 @@
 import sqlite3
 import pandas as pd
 import requests
-import json
+import configparser
 
 
 class FinancialDataProvider(object):
 
     def __init__(self):
+
+        config = configparser.ConfigParser()
+        config.read('config.ini')
+        self._av_api_key = config['AV']['AV_API_KEY']
+
         self._conn = self._create_connection('fdp_daily.db')
         if self._conn is not None:
             self._create_daily_price_table()
@@ -32,7 +37,7 @@ class FinancialDataProvider(object):
         return conn
 
     def _create_daily_price_table(self):
-        sql_statements = ('CREATE TABLE IF NOT EXISTS daily_data ('
+        sql = ('CREATE TABLE IF NOT EXISTS daily_data ('
                           'date text NOT NULL,'
                           'symbol text NOT NULL,'
                           'open real NOT NULL,'
@@ -54,44 +59,54 @@ class FinancialDataProvider(object):
 
         try:
             c = self._conn.cursor()
-            c.execute(sql_statements)
+            c.execute(sql)
         except sqlite3.Error as e:
             print(e)
 
     def get(self, symbol, start_date, end_date):
 
-        # Try an access it
-        values = (symbol, start_date, end_date)
-        # SELECT * FROM daily_data WHERE symbol='AMZN' AND date between '2018-08-18' AND '2018-08-31';
-        sql_statements = "SELECT * FROM daily_data WHERE symbol=? AND date BETWEEN ? AND ?;"
+        df = self._read_from_sql(end_date, start_date, symbol)
 
-        print(sql_statements)
+        if df.empty:
+            df = self._download_and_store(symbol, start_date, end_date)
+        else:
+            print('Read: {}'.format(symbol))
+
+        return df
+
+    def _read_from_sql(self, end_date, start_date, symbol):
+
+        # Create a query like this one:
+        # SELECT * FROM daily_data WHERE symbol='AMZN' AND date between '2018-08-18' AND '2018-08-31';
+        values = (symbol, start_date, end_date)
+        sql = "SELECT * FROM daily_data WHERE symbol=? AND date BETWEEN ? AND ?;"
 
         try:
-            df = pd.read_sql(sql_statements, self._conn, index_col='date', params=values)
-            print('Read {}:'.format(symbol))
+            df = pd.read_sql(sql, self._conn, index_col='date', params=values)
         except Exception as e:
             print(e)
-            df = self._download_and_store(symbol, start_date, end_date)
-
+            # create an empty dataframe to return
+            df = pd.DataFrame({'A': []})
         return df
 
     def _download_and_store(self, symbol, start_date, end_date):
 
-        df = self._download(symbol, start_date, end_date)
-        df = self._store(df)
+        df = self._download(symbol)
+        self._store(df)
+        df = self._read_from_sql(end_date, start_date, symbol)
         return df
 
-    def _download(self, symbol, start_date, end_date):
+    def _download(self, symbol):
 
-        payload = {'apikey': 'XPTB5QP8MF5RDRUD', 'function': 'TIME_SERIES_DAILY_ADJUSTED', 'symbol': 'AMZN'}
+        payload = {'apikey': self._av_api_key, 'symbol': symbol,
+                   'function': 'TIME_SERIES_DAILY_ADJUSTED', 'outputsize': 'compact'}
         response = requests.get('https://www.alphavantage.co/query', params=payload)
 
         if response.status_code != requests.codes.ok:
             print('Error getting {} from Alpha Vantage'.format(symbol))
             print('Error: {}'.format(response.json()))
         else:
-            print('Downloaded {}'.format((symbol)))
+            print('Downloaded: {}'.format((symbol)))
             json_dict = response.json()
             df = pd.DataFrame.from_dict(json_dict['Time Series (Daily)'], orient="index")
 
@@ -130,8 +145,10 @@ class FinancialDataProvider(object):
 def main():
 
     fdp = FinancialDataProvider()
-    df = fdp.get('AMZN', start_date='2018-08-01', end_date='2018-08-31')
-    print(df)
+    df = fdp.get('AMZN', start_date='2017-10-01', end_date='2018-08-31')
+    print(df.head(2))
+    df = fdp.get('GOOG', start_date='2017-10-01', end_date='2018-08-31')
+    print(df.head(2))
 
 
 if __name__ == '__main__':

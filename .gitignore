@@ -111,4 +111,8 @@ Thumbs.db
 __pycache__/
 .data_cache/
 cache.sqlite
+
+
+# project specific
 fdp_daily.db
+config.ini
