@@ -62,7 +62,7 @@ class FinancialDataProvider(object):
 
     def get(self, symbol, start_date, end_date):
 
-        df = self._read_from_sql(end_date, start_date, symbol)
+        df = self._read_from_sql(symbol, start_date, end_date)
 
         if df.empty:
             df = self._download_then_adjust_and_store(symbol, start_date, end_date)
@@ -71,7 +71,7 @@ class FinancialDataProvider(object):
 
         return df
 
-    def _read_from_sql(self, end_date, start_date, symbol):
+    def _read_from_sql(self, symbol, start_date, end_date):
 
         # Create a query like this one:
         # SELECT * FROM daily_data WHERE symbol='AMZN' AND date between '2018-08-18' AND '2018-08-31';
@@ -79,7 +79,7 @@ class FinancialDataProvider(object):
         sql = "SELECT * FROM daily_data WHERE symbol=? AND date BETWEEN ? AND ?;"
 
         try:
-            df = pd.read_sql(sql, self._conn, index_col='date', params=values)
+            df = pd.read_sql(sql, self._conn, index_col='date', params=values, parse_dates=['date'])
         except Exception as e:
             print(e)
             # create an empty dataframe to return
@@ -91,7 +91,7 @@ class FinancialDataProvider(object):
         df = self._download(symbol)
         df = self._adjust(df)
         self._store(df)
-        df = self._read_from_sql(end_date, start_date, symbol)
+        df = self._read_from_sql(symbol, start_date, end_date)
         return df
 
     def _download(self, symbol):
@@ -145,11 +145,6 @@ class FinancialDataProvider(object):
                  'adj_open', 'adj_high', 'adj_low', 'adj_close']]
 
         # Prior to this call all the columns were object type for some reason.
-        #df = df.astype({'open': 'float64', 'high': 'float64', 'low': 'float64', 'close': 'float64',
-        #                'volume': 'float64', 'dividend_amt': 'float64', 'split_coeff': 'float64',
-        #                'adj_close': 'float64', 'adj_high': 'float64','adj_low': 'float64', 'adj_close': 'float64'})
-
-        # Prior to this call all the columns were object type for some reason.
         df = df.astype({'adj_open': 'float64', 'adj_high': 'float64', 'adj_low': 'float64', 'adj_close': 'float64'})
 
         return df
@@ -174,9 +169,8 @@ def main():
 
     fdp = FinancialDataProvider()
 
-    df = fdp.get('AMZN', start_date='2018-10-01', end_date='2018-08-31')
+    df = fdp.get('AMZN', start_date='2017-10-01', end_date='2018-08-31')
     print(df.head(2))
-    print(df.tail(2))
 
     # For testing 2:1 stock split
     #df = fdp.get('EDUC', start_date='2018-08-10', end_date='2018-08-31')
