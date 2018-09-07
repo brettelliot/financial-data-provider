@@ -2,10 +2,13 @@ import sqlite3
 import pandas as pd
 import requests
 import configparser
+import time
 
 
 class FinancialDataProvider(object):
     def __init__(self):
+
+        self.last_call_time = time.time()
 
         pd.set_option('display.max_columns', None)
 
@@ -95,6 +98,13 @@ class FinancialDataProvider(object):
         return df
 
     def _download(self, symbol):
+
+        # Be sure not to exceed the api throttling of 1 call per second
+        current_time = time.time()
+        if current_time <= self.last_call_time + 1:
+            time.sleep(1.5)
+
+        self.last_call_time = time.time()
 
         payload = {'apikey': self._av_api_key, 'symbol': symbol,
                    'function': 'TIME_SERIES_DAILY_ADJUSTED', 'outputsize': 'full'}
