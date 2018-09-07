@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='financialdataprovider',
-      version='1.0.0',
+      version='1.0.1',
       description='Download, store and access historical financial data for stocks.',
       url='http://github.com/brettelliot/financial-data-provider',
       author='Brett Elliot',
