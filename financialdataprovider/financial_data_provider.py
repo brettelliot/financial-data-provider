@@ -63,11 +63,11 @@ class FinancialDataProvider(object):
         except sqlite3.Error as e:
             print(e)
 
-    def get(self, symbol, start_date, end_date):
+    def get(self, symbol, start_date, end_date, force_download=False):
 
         df = self._read_from_sql(symbol, start_date, end_date)
 
-        if df.empty:
+        if df.empty or force_download:
             df = self._download_then_adjust_and_store(symbol, start_date, end_date)
         else:
             print('Read: {}'.format(symbol))
@@ -110,11 +110,7 @@ class FinancialDataProvider(object):
                    'function': 'TIME_SERIES_DAILY_ADJUSTED', 'outputsize': 'full'}
         response = requests.get('https://www.alphavantage.co/query', params=payload)
 
-        if response.status_code != requests.codes.ok:
-            print('Error getting {} from Alpha Vantage'.format(symbol))
-            print('Error: {}'.format(response.json()))
-        else:
-            print('Downloaded: {}'.format((symbol)))
+        try:
             json_dict = response.json()
             df = pd.DataFrame.from_dict(json_dict['Time Series (Daily)'], orient="index")
 
@@ -130,7 +126,18 @@ class FinancialDataProvider(object):
                                     '7. dividend amount': 'dividend_amt',
                                     '8. split coefficient': 'split_coeff'})
 
-            return df
+            print('Downloaded: {}'.format(symbol))
+            print(df.head())
+
+        except Exception as e:
+            if response.status_code != requests.codes.ok:
+                print('Error getting {} from Alpha Vantage'.format(symbol))
+                print('Error: {}'.format(response.json()))
+                print('Exception: {}'.format(e))
+                # create an empty dataframe to return
+                df = pd.DataFrame({'A': []})
+
+        return df
 
     def _adjust(self, df):
 
@@ -179,7 +186,7 @@ def main():
 
     fdp = FinancialDataProvider()
 
-    df = fdp.get('AMZN', start_date='2017-10-01', end_date='2018-08-31')
+    df = fdp.get('PPG', start_date='2017-10-01', end_date='2018-08-31', force_download=True)
     print(df.head(2))
 
     # For testing 2:1 stock split
