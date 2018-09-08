@@ -8,7 +8,8 @@ import time
 class FinancialDataProvider(object):
     def __init__(self):
 
-        self.last_call_time = time.time()
+        self._last_call_time = 0
+        self._sleep_time = 60 / 5 + 1  # AV allows 5 requests minute
 
         pd.set_option('display.max_columns', None)
 
@@ -101,10 +102,10 @@ class FinancialDataProvider(object):
 
         # Be sure not to exceed the api throttling of 1 call per second
         current_time = time.time()
-        if current_time <= self.last_call_time + 1:
-            time.sleep(1.5)
+        if current_time <= self._last_call_time + self._sleep_time:
+            time.sleep(self._sleep_time)
 
-        self.last_call_time = time.time()
+        self._last_call_time = time.time()
 
         payload = {'apikey': self._av_api_key, 'symbol': symbol,
                    'function': 'TIME_SERIES_DAILY_ADJUSTED', 'outputsize': 'full'}
@@ -127,15 +128,13 @@ class FinancialDataProvider(object):
                                     '8. split coefficient': 'split_coeff'})
 
             print('Downloaded: {}'.format(symbol))
-            print(df.head())
 
         except Exception as e:
-            if response.status_code != requests.codes.ok:
-                print('Error getting {} from Alpha Vantage'.format(symbol))
-                print('Error: {}'.format(response.json()))
-                print('Exception: {}'.format(e))
-                # create an empty dataframe to return
-                df = pd.DataFrame({'A': []})
+            print('Error getting {} from Alpha Vantage'.format(symbol))
+            print('Error: {}'.format(response.json()))
+            print('Exception: {}'.format(e))
+            # create an empty dataframe to return
+            df = pd.DataFrame({'A': []})
 
         return df
 
@@ -186,7 +185,7 @@ def main():
 
     fdp = FinancialDataProvider()
 
-    df = fdp.get('PPG', start_date='2017-10-01', end_date='2018-08-31', force_download=True)
+    df = fdp.get('AMZN', start_date='2017-10-01', end_date='2018-08-31', force_download=True)
     print(df.head(2))
 
     # For testing 2:1 stock split
