@@ -107,7 +107,9 @@ class FinancialDataProvider(object):
 
         self._last_call_time = time.time()
 
-        payload = {'apikey': self._av_api_key, 'symbol': symbol,
+        cleaned_symbol = self._clean_symbol(symbol)
+
+        payload = {'apikey': self._av_api_key, 'symbol': cleaned_symbol,
                    'function': 'TIME_SERIES_DAILY_ADJUSTED', 'outputsize': 'full'}
         response = requests.get('https://www.alphavantage.co/query', params=payload)
 
@@ -137,6 +139,17 @@ class FinancialDataProvider(object):
             df = pd.DataFrame({'A': []})
 
         return df
+
+    def _clean_symbol(self, symbol):
+        """
+        Returns a cleaned up version of the stock symbol that works with Alpha Vantage
+
+        :param symbol: (str) The stock ticker
+        :return: (str) A cleaned stock ticker that works with AlphaVantage
+        """
+
+        cleaned_symbol = symbol.replace('.', '-')
+        return cleaned_symbol
 
     def _adjust(self, df):
 
@@ -185,7 +198,7 @@ def main():
 
     fdp = FinancialDataProvider()
 
-    df = fdp.get('AMZN', start_date='2017-10-01', end_date='2018-08-31', force_download=True)
+    df = fdp.get('JW.A', start_date='2017-10-01', end_date='2018-08-31', force_download=True)
     print(df.head(2))
 
     # For testing 2:1 stock split
